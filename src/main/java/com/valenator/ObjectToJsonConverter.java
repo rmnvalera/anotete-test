@@ -7,9 +7,7 @@ import com.valenator.anotate.JsonSerializationException;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class ObjectToJsonConverter {
@@ -18,6 +16,16 @@ public class ObjectToJsonConverter {
       checkIfSerializable(object);
       initializeObject(object);
       return getJsonString(object);
+    } catch (Exception e) {
+      throw new JsonSerializationException(e.getMessage());
+    }
+  }
+
+  public <T> Class<T> convertToObject(List<String> stringList, Class<T> tClass) throws JsonSerializationException {
+    try {
+//      checkIfSerializable(object);
+//      initializeObject(object);
+      return getObject(stringList, tClass);
     } catch (Exception e) {
       throw new JsonSerializationException(e.getMessage());
     }
@@ -57,11 +65,32 @@ public class ObjectToJsonConverter {
     }
 
 
-
     String jsonString = jsonElementsMap.entrySet()
                                        .stream()
-                                       .map(entry -> String.format("\"%s\": \"%s\"", entry.getKey(),  entry.getValue()))
+                                       .map(entry -> String.format("\"%s\": \"%s\"", entry.getKey(), entry.getValue()))
                                        .collect(Collectors.joining(", "));
     return "{" + jsonString + "}";
+  }
+
+  private <T> Class<T> getObject(List<String> list, Class<T> tClass) throws IllegalAccessException {
+    Map<String, String> jsonElementsMap = new HashMap<>();
+
+    for (Field field : tClass.getDeclaredFields()) {
+      field.setAccessible(true);
+      if (field.isAnnotationPresent(JsonElement.class)) {
+        JsonElement element = field.getAnnotation(JsonElement.class);
+        String      key     = element.key().isEmpty() ? field.getName() : element.key();
+
+        int          keyNumber = list.indexOf(key);
+        if (keyNumber == -1){
+          continue;
+        }
+        String value = list.get(keyNumber + 1);
+
+        jsonElementsMap.put(key, value);
+      }
+    }
+
+    return tClass;
   }
 }
